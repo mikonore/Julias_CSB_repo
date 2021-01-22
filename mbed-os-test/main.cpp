@@ -4,7 +4,6 @@
 #include "LTC681x.h"
 #include "LTC6811.h"
 #include "stdio.h"
-#include <cstdio>
 
 //#include <Terminal.h>
 
@@ -134,17 +133,16 @@ int main(void)
     uint32_t user_command;
     //pc_term.cls();
     //pc_term.locate(0,0);  
-    //pc_term.foreground(WHITE);
-    printf("Press return to start...\r\n"); 
-    print_menu();                                      
+    //pc_term.foreground(WHITE);                                         
                                             
     while(1){ 
+        print_menu();
+        printf("Press return to start...\r\n");
         while(!pc.readable()) {
             delay_m(300);
         }         // Check for user input
         user_command = read_int();      // Read the user command
-        run_command(user_command);
-        printf("return from run command\r\n");
+        printf("\r\n");
         //pc_term.cls();
         //pc_term.locate(0,0);
         //pc.baud(115200);
@@ -152,7 +150,7 @@ int main(void)
         LTC681x_init_cfg(TOTAL_IC, bms_ic);
         LTC6811_reset_crc_count(TOTAL_IC,bms_ic);
         LTC6811_init_reg_limits(TOTAL_IC,bms_ic);
-        printf("\n");
+        print_menu();
         //clear the screen
     }
 }
@@ -163,7 +161,6 @@ int main(void)
 
 uint8_t run_command(uint32_t cmd)
 {
-    printf("entering run command\n");
     uint8_t result = 0; // final result of the run_command
     uint8_t tmp = 0;    // place holder result value
                         // for recursive intermidiary function calls
@@ -197,23 +194,30 @@ uint8_t run_command(uint32_t cmd)
             //print_rxconfig();
             break;
 
-        case 34: // Start Cell ADC Measurement
-            // 3 followed by 4 = case 34
-            tmp = run_command(3);
-            // print the values of the cells, because check_cells_4V doesn't print
-            tmp = run_command(4);
+         /* Start Cell ADC Measurement then Cell Voltage Registers reading*/
+        case 34:{
+            wakeup_sleep(TOTAL_IC);
+            LTC681x_adcv(ADC_CONVERSION_MODE,ADC_DCP,CELL_CH_TO_CONVERT);
+            uint32_t error = LTC681x_pollAdc();     // Wait for end of ADC conversion
+            wakeup_idle(TOTAL_IC);
+            LTC681x_rdcv(0, TOTAL_IC,bms_ic);       // Read back all cell voltage registers
+
             
-            result = check_cells_4V(DATALOG_DISABLED,lower_limit,higher_limit);
-            printf("                 Test completed\r\n");
+            printf("\r\n [case %d]",cmd);
+            check_error(error);
+            printf("Cell conversion completed in %d us \r\n",error);
+            print_cells(DATALOG_DISABLED);
+            
             break;
+        }
             
         case 3: // Start Cell ADC Measurement
             wakeup_sleep(TOTAL_IC);
             LTC6811_adcv(ADC_CONVERSION_MODE,ADC_DCP,CELL_CH_TO_CONVERT);
             conv_time = LTC6811_pollAdc();
-            //printf("cell conversion completed in:");
-            //printf("%.1f",((float)conv_time/1000));
-            //printf("mS\r\n");
+            printf("cell conversion completed in:");
+            printf("%.1f",((float)conv_time/1000));
+            printf("mS\r\n");
             //result not changed, will return 0 (that's okay because we don't
             //care about the return of this particular case)
             break;
@@ -222,7 +226,8 @@ uint8_t run_command(uint32_t cmd)
             wakeup_sleep(TOTAL_IC);
             error = LTC6811_rdcv(0, TOTAL_IC,bms_ic); // Set to read back all cell voltage registers
             check_error(error);
-            //print_cells(DATALOG_DISABLED);
+            print_cells(DATALOG_DISABLED);
+            
             break;
     
         case 56:
@@ -237,31 +242,31 @@ uint8_t run_command(uint32_t cmd)
             wakeup_sleep(TOTAL_IC);
             LTC6811_adax(ADC_CONVERSION_MODE , AUX_CH_TO_CONVERT);
             LTC6811_pollAdc();
-            //printf("aux conversion completed\r\n");
-            //printf("\r\n");
+            printf("aux conversion completed\r\n");
+            printf("\r\n");
             break;
 
         case 6: // Read AUX Voltage Registers
             wakeup_sleep(TOTAL_IC);
             error = LTC6811_rdaux(0,TOTAL_IC,bms_ic); // Set to read back all aux registers
             check_error(error);
-            //printf("GPIO and VREF voltages: \r\n");
-            //print_aux(DATALOG_DISABLED);
+            printf("GPIO and VREF voltages: \r\n");
+            print_aux(DATALOG_DISABLED);
             break;
 
         case 7: // Start Status ADC Measurement
             wakeup_sleep(TOTAL_IC);
             LTC6811_adstat(ADC_CONVERSION_MODE, STAT_CH_TO_CONVERT);
             LTC6811_pollAdc();
-            //printf("stat conversion completed\r\n");
-            //printf("\r\n");
+            printf("stat conversion completed\r\n");
+            printf("\r\n");
             break;
 
         case 8: // Read Status registers
             wakeup_sleep(TOTAL_IC);
             error = LTC6811_rdstat(0,TOTAL_IC,bms_ic); // Set to read back all aux registers
             check_error(error);
-            //print_stat();
+            print_stat();
             break;
 
         case 9: // Loop Measurements
@@ -1155,12 +1160,12 @@ uint8_t read_data()
 {
     uint8_t index = 0; //index to hold current location in ui_buffer
     int c,d; // single character used to store incoming keystrokes
-    printf("check 1\r\n");
+    //printf("check 1\r\n");
     while (index < UI_BUFFER_SIZE-1) {
-        printf("check 2\r\n");
+        //printf("check 2\r\n");
         pc.read(&c,1);
         //return c;
-        printf("check 3\r\n");
+        //printf("check 3\r\n");
         
         if (((char) c == '\r') || ((char) c == '\r\n')) break; // if carriage return or linefeed, stop and return data
         if (((char) c == '\x7F') || ((char) c == '\x08')) { // remove previous character (decrement index) if Backspace/Delete key pressed      index--;
@@ -1168,7 +1173,7 @@ uint8_t read_data()
         } else if (c >= 0) {
             ui_buffer[index++]=(char) c; // put character into ui_buffer
         }
-        printf("check 4\r\n");
+        //printf("check 4\r\n");
         
     }
     ui_buffer[index]='\0';  // terminate string with NULL
@@ -1176,17 +1181,17 @@ uint8_t read_data()
     if ((char) c == '\r') {  // if the "last" character was a carriage return, also clear linefeed if it is next character
         //wait_ms(5);
         delay_m(10);
-        printf("check 5\r\n");
+        //printf("check 5\r\n");
         
         if (pc.readable()==1) {
-            printf("check 6\r\n");
+            //printf("check 6\r\n");
              pc.read(&d,1); // if linefeed appears, read it and throw it away
             //wait_ms(5);
         }
-        printf("check 7\r\n");
+        //printf("check 7\r\n");
         
     }
-    printf("check 8\r\n");
+    //printf("check 8\r\n");
         
     return index; // return number of characters, not including null terminator
 }
@@ -1209,17 +1214,15 @@ float read_float()
 // Binary:  B10001 (leading B prefix)
 int32_t read_int()
 {
-    printf("entering function read int\n");
+    //printf("entering function read int");
     int32_t data;
     read_data();
-    printf("ui buffer: %c\n", ui_buffer[0]);
     if (ui_buffer[0] == 'm')
         return('m');
     if ((ui_buffer[0] == 'B') || (ui_buffer[0] == 'b')) {
         data = strtol(ui_buffer+1, NULL, 2);
     } else
         data = strtol(ui_buffer, NULL, 0);
-    printf("data: %c\n", data);
     return(data);
 }
 
