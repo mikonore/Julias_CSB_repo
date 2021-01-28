@@ -7,6 +7,7 @@
 
 #include "LTC681x.h"
 #include "bms.h"
+#include <cstdio>
 //#include "LT_SPI.h"
 
 void wakeup_idle(uint8_t total_ic)
@@ -14,6 +15,7 @@ void wakeup_idle(uint8_t total_ic)
     for (int i =0; i<total_ic; i++) {
         cs_low();
         //wait_ms(2); //Guarantees the isoSPI will be in ready mode commenting this line 
+        printf("Another 'read byte' when going from idle to ready state\r\n");
         spi_read_byte(0xff);
         cs_high();
     }
@@ -42,6 +44,11 @@ void cmd_68(uint8_t tx_cmd[2])
     cmd_pec = pec15_calc(2, cmd);
     cmd[2] = (uint8_t)(cmd_pec >> 8);
     cmd[3] = (uint8_t)(cmd_pec);
+    printf("First 4 bytes to be communicated through SPI (MO) in case 34 ('write array'): \r\n";
+    printf("CMD0 = %x \r\n", cmd[0]);
+    printf("CMD1 = %x \r\n", cmd[1]);
+    printf("PEC0 = %x \r\n", cmd[2]);
+    printf("PEC1 = %x \r\n", cmd[3]);
     cs_low();
     spi_write_array(4,cmd);
     cs_high();
@@ -302,10 +309,17 @@ uint32_t LTC681x_pollAdc()
     cmd[2] = (uint8_t)(cmd_pec >> 8);
     cmd[3] = (uint8_t)(cmd_pec);
 
+    printf("Second 4 bytes to be communicated through SPI (MO) in case 34 ('write array'): \r\n";
+    printf("CMD0 = %x \r\n", cmd[0]);
+    printf("CMD1 = %x \r\n", cmd[1]);
+    printf("PEC0 = %x \r\n", cmd[2]);
+    printf("PEC1 = %x \r\n", cmd[3]);
+
     cs_low();
     spi_write_array(4,cmd);
 
     while ((counter<200000)&&(finished == 0)) {
+        printf("A 'read byte' is sent (repeatedly on MO?), 0xff\r\n");
         current_time = spi_read_byte(0xff);
         if (current_time>0) {
             finished = 1;
@@ -435,6 +449,12 @@ void LTC681x_rdcv_reg(uint8_t reg, //Determines which cell voltage register is r
     cmd_pec = pec15_calc(2, cmd);
     cmd[2] = (uint8_t)(cmd_pec >> 8);
     cmd[3] = (uint8_t)(cmd_pec);
+
+    printf("Last 4 bytes to be communicated through SPI (MO) in case 34 ('write read'): \r\n";
+    printf("CMD0 = %x \r\n", cmd[0]);
+    printf("CMD1 = %x \r\n", cmd[1]);
+    printf("PEC0 = %x \r\n", cmd[2]);
+    printf("PEC1 = %x \r\n", cmd[3]);
 
     cs_low();
     spi_write_read(cmd,4,data,(REG_LEN*total_ic));
@@ -621,9 +641,12 @@ uint8_t LTC681x_rdcv(uint8_t reg, // Controls which cell voltage register is rea
     uint8_t *cell_data;
     uint8_t c_ic = 0;
     cell_data = (uint8_t *) malloc((NUM_RX_BYT*total_ic)*sizeof(uint8_t));
+    printf("The recieved bytes from the cell voltage readings: \r\n");
+    printf("cell data = %x \r\n", cell_data); 
 
     if (reg == 0) {
-        for (uint8_t cell_reg = 1; cell_reg<ic[0].ic_reg.num_cv_reg+1; cell_reg++) {                 //executes once for each of the LTC6811 cell voltage registers
+        for (uint8_t cell_reg = 1; cell_reg<ic[0].ic_reg.num_cv_reg+1; cell_reg++) {       //executes once for each of the LTC6811 cell voltage registers
+            printf("cell voltage register nr: %d \r\n", cell_reg);
             LTC681x_rdcv_reg(cell_reg, total_ic,cell_data );
             for (int current_ic = 0; current_ic<total_ic; current_ic++) {
                 if (ic->isospi_reverse == false) {

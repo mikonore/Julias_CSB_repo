@@ -4,6 +4,7 @@
 #include "LTC681x.h"
 #include "LTC6811.h"
 #include "stdio.h"
+#include <cstdio>
 
 //#include <Terminal.h>
 
@@ -133,15 +134,17 @@ int main(void)
     uint32_t user_command;
     //pc_term.cls();
     //pc_term.locate(0,0);  
-    //pc_term.foreground(WHITE);                                         
+    //pc_term.foreground(WHITE);    
+    printf("Press return to start...\r\n");
+    run_command(34);                               
                                             
-    while(1){ 
-        print_menu();
-        printf("Press return to start...\r\n");
+    while(1){
+        run_command(34);
         while(!pc.readable()) {
             delay_m(300);
         }         // Check for user input
         user_command = read_int();      // Read the user command
+        print_menu();
         printf("\r\n");
         //pc_term.cls();
         //pc_term.locate(0,0);
@@ -150,7 +153,7 @@ int main(void)
         LTC681x_init_cfg(TOTAL_IC, bms_ic);
         LTC6811_reset_crc_count(TOTAL_IC,bms_ic);
         LTC6811_init_reg_limits(TOTAL_IC,bms_ic);
-        print_menu();
+        run_command(user_command);
         //clear the screen
     }
 }
@@ -199,6 +202,7 @@ uint8_t run_command(uint32_t cmd)
             wakeup_sleep(TOTAL_IC);
             LTC681x_adcv(ADC_CONVERSION_MODE,ADC_DCP,CELL_CH_TO_CONVERT);
             uint32_t error = LTC681x_pollAdc();     // Wait for end of ADC conversion
+            printf("Counter from spi_read_byte is: %d \r\n", error);
             wakeup_idle(TOTAL_IC);
             LTC681x_rdcv(0, TOTAL_IC,bms_ic);       // Read back all cell voltage registers
 
@@ -830,7 +834,9 @@ void print_cells(uint8_t datalog_en)
             printf("IC%d, ", current_ic+1);
             for (int i=0; i<bms_ic[0].ic_reg.cell_channels; i++) {
                 printf("C%d:", i+1);
-                printf("%.4f, ", bms_ic[current_ic].cells.c_codes[i]*0.0001);
+                //printf("%.4f, ", bms_ic[current_ic].cells.c_codes[i]*0.0001);
+                printf("%d,
+                 ", bms_ic[current_ic].cells.c_codes[i]/**0.0001*/);
             }
             printf("\r\n");
         } else {

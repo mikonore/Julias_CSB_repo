@@ -1,9 +1,10 @@
 #include "mbed.h"
 #include "bms.h"
+#include <cstdio>
 //SPI device(SPI_MOSI, SPI_MISO, SPI_SCK);
 //SPI spi(PC_12,PC_11,PC_10);
 SPI spi_2(PA_7,PA_6,PA_5); //SPI spi_2(PB_15,PB_14,PB_13);
-DigitalOut cs(PB_1);
+DigitalOut cs(PD_14);
 //DigitalOut cs(PC_1);
 void cs_low(void)
 {
